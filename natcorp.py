@@ -8,7 +8,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-def parse(p):
+def parse(p, lex=False, misses=None):
     res = []
     re = regex.compile('^(?P<S>[\w-,]+)=?(\(?((?P<F>[\w,]+)\|?)+\)?)?(=[\w,]+)*$')
     for f in [join(p, f) for f in ls(p) if isfile(join(p, f))]:
@@ -21,7 +21,9 @@ def parse(p):
                     log.warn('Match failed for "%s"', gr)
                 else:
                     # НКРЯ размечен людьми. Разметка всегда однозначна.
-                    grammems = grmodel.get_grammems(match)[0]
+                    grammems = grmodel.get_grammems(match, misses)[0]
+                    if lex:
+                        grammems['lex'] = lexem
                     tokens.append(grammems)
             res.append(tokens)
     return res

@@ -1,7 +1,9 @@
 # -*- coding: utf8 -*-
 
 import enum
+import logging
 
+log = logging.getLogger(__name__)
 
 def __map_gremmems(str, misses=None):
     res = {}
@@ -9,7 +11,7 @@ def __map_gremmems(str, misses=None):
         if t in __map:
             val = __map[t]
             res[val.__class__.__name__] = val
-        elif misses:
+        elif not misses is None:
             misses.add(t)
     return res
 
@@ -89,7 +91,9 @@ __map = {
     'ADJF' : PoS.ADJF, # OpenCorpora
     'A'    : PoS.ADJF, # НКРЯ, MyStem
     'ANUM' : PoS.ADJF, # НКРЯ, MyStem (числительное-прилогательное)
-    'APRO' : PoS.ADJF, # НКРЯб MyStem (местоимение-прилагательное)
+    'A-NUM' : PoS.ADJF, # НКРЯ
+    'APRO' : PoS.ADJF, # НКРЯ, MyStem (местоимение-прилагательное)
+    'A-PRO' : PoS.ADJF, # НКРЯ
 
     # Имя прилагательное (краткое)
     'ADJS' : PoS.ADJS, # OpenCorpora
@@ -122,11 +126,13 @@ __map = {
     'ADV'        : PoS.ADVB, # НКРЯ, MyStem
     'PARENTH'    : PoS.ADVB, # НКРЯ (вводное слово)
     'ADVPRO'     : PoS.ADVB, # НКРЯ, MyStem (местоименное наречие)
-    'PRAEDICPRO' : PoS.ADVB, # НКРЯ (местоимение-предикатив)
+    'ADV-PRO'     : PoS.ADVB, # НКРЯ
+    'PRAEDIC-PRO' : PoS.ADVB, # НКРЯ (местоимение-предикатив)
 
     # Местоимение-существительное
     'NPRO' : PoS.NPRO, # OpenCorpora
     'SPRO' : PoS.NPRO, # НКРЯ, MyStem
+    'S-PRO' : PoS.NPRO, # НКРЯ
 
     # Предикатив
     'PRED'    : PoS.PRED, # OpenCorpora
