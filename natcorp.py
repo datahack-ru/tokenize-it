@@ -5,6 +5,9 @@ from fnmatch import fnmatch
 import regex
 import grmodel
 
+import pandas as pd
+import seaborn as sns
+
 import logging
 
 log = logging.getLogger(__name__)
@@ -32,5 +35,11 @@ def parse(p, lex=False, misses=None):
                 res.append(tokens)
         elif isdir(f):
             res = res + parse(f, lex, misses)
-
     return res
+
+def words(sentences):
+    res = []
+    for sentence in sentences:
+        for word in sentence:
+            res.append(word)
+    return pd.DataFrame(res, dtype="category")
