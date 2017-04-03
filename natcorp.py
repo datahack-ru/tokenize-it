@@ -7,12 +7,14 @@ import grmodel
 
 import pandas as pd
 import seaborn as sns
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 import logging
 
 log = logging.getLogger(__name__)
 
-def parse(p, lex=False, misses=None):
+def parse(p, lex=True, misses=None):
     res = []
     re = regex.compile('^(?P<S>[\w-,]+)=?(\(?((?P<F>[\w,]+)\|?)+\)?)?(=[\w,]+)*$')
     for f in [join(p, f) for f in ls(p)]:
@@ -43,3 +45,31 @@ def words(sentences):
         for word in sentence:
             res.append(word)
     return pd.DataFrame(res, dtype="category")
+
+def prep_noun(sentences):
+    res = []
+    for sentence in sentences:
+        prep = None
+        for word in sentence:
+            if 'PoS' in word:
+                if word['PoS'] == grmodel.PoS.PREP:
+                    prep = word
+                if word['PoS'] == grmodel.PoS.NOUN:
+                    if prep != None:
+                        word['prep'] = prep['lex'].lower()
+                        res.append(word)
+                        prep = None
+    return pd.DataFrame(res, dtype="category")[['Case', 'prep']]
+
+def pn_plot(pn):
+    pn[pn.prep == 'к'].plot(x='Case', kind='hist')
+
+def plot_1(words):
+    plt.figure(num=None, figsize=(8, 6), dpi=100, facecolor='w', edgecolor='k')
+    plt.xticks(rotation=45)
+    return sns.countplot(x = 'PoS', data=words, color="black")
+
+def plot_2(words):
+    plt.figure(num=None, figsize=(8, 6), dpi=100, facecolor='w', edgecolor='k')
+    plt.xticks(rotation=45)
+    return sns.countplot(x = 'Case', data=words[words.PoS == grmodel.PoS.NOUN], color="black")
