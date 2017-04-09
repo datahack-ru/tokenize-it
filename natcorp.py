@@ -46,6 +46,43 @@ def words(sentences):
             res.append(word)
     return pd.DataFrame(res, dtype="category")
 
+def join_dicts(dict1, prefix1, dict2, prefix2):
+    res = {}
+    for key in dict1.keys():
+        res[prefix1 + key] = dict1[key]
+    for key in dict2.keys():
+        res[prefix2 + key] = dict2[key]
+    return res
+
+def wordpairs(sentences, dist=1):
+    res = []
+    for sentence in sentences:
+        srange = [i for i in range(len(sentence))]
+        for i in srange:
+            j = i + dist
+            if i + dist in srange:
+                res.append(join_dicts(sentence[i], "w1_", sentence[j], "w2_"))
+    return pd.DataFrame(res, dtype="category")
+
+def plot_wordpairs(nc):
+    for i in range(1, 5):
+        wp = wordpairs(nc, i)
+        pt = pd.crosstab(wp.w1_PoS, wp.w2_PoS, margins=False, normalize='all')
+        f = plt.figure()
+        ax = f.add_subplot(111)
+        sns.set_palette(sns.color_palette("OrRd", 10))
+        sns.heatmap(pt, linewidths=0.1, ax=ax, cmap="YlGnBu")
+        figure_config(f)
+        plt.savefig("wp_pos_" + str(i) + ".png", bbox_inches='tight')
+        plt.close(f)
+
+def figure_config(f):
+    for ax in f.axes:
+        for tick in ax.get_xticklabels():
+            tick.set_rotation(45)
+        for tick in ax.get_yticklabels():
+            tick.set_rotation(0)
+
 def prep_noun(sentences):
     res = []
     for sentence in sentences:
@@ -62,7 +99,21 @@ def prep_noun(sentences):
     return pd.DataFrame(res, dtype="category")[['Case', 'prep']]
 
 def pn_plot(pn):
-    pn[pn.prep == 'к'].plot(x='Case', kind='hist')
+    f = plt.figure(num=None, figsize=(8, 6), dpi=100, facecolor='w', edgecolor='k')
+    ax = f.add_subplot(111)
+
+    p_ = pn.loc[pn.prep.isin(['к', 'о', 'от', 'для', 'без','о'])]
+
+    x = sns.countplot(x="Case", hue="prep", data=p_)
+
+    # for p in ['к', 'о', 'от', 'для', 'без','о']:
+    #     pn[pn.prep == p].Case.value_counts(normalize=True, sort=False).plot(ax=ax, kind='bar')
+
+    for tick in ax.get_xticklabels():
+        tick.set_rotation(45)
+
+    return f
+
 
 def plot_1(words):
     plt.figure(num=None, figsize=(8, 6), dpi=100, facecolor='w', edgecolor='k')
