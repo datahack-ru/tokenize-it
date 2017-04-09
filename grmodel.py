@@ -28,7 +28,27 @@ def get_grammems(gr_match, misses=None):
         res.append(s)
     return res
 
-class PoS(enum.Enum):
+class ModelEnum(enum.Enum):
+    def __str__(self):
+        return self.name
+    def __ge__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value >= other.value
+        return NotImplemented
+    def __gt__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value > other.value
+        return NotImplemented
+    def __le__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value <= other.value
+        return NotImplemented
+    def __lt__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value < other.value
+        return NotImplemented
+
+class PoS(ModelEnum):
     NOUN = 1  # имя существительное
     ADJF = 2  # имя прилагательное (полное)
     ADJS = 3  # имя прилагательное (краткое)
@@ -47,12 +67,12 @@ class PoS(enum.Enum):
     PRCL = 16 # частица
     INTJ = 17 # междометие
 
-class Tense(enum.Enum):
+class Tense(ModelEnum):
     PRES = 1  # настоящее
     PAST = 2  # прошедшее
     FUTR = 3  # будущее
 
-class Case(enum.Enum):
+class Case(ModelEnum):
     NOMN = 1  # именительный падеж
     GENT = 2  # родительный падеж
     DATV = 3  # дательный падеж
@@ -64,18 +84,18 @@ class Case(enum.Enum):
     ACC2 = 9  # второй винительный падеж accs
     LOC2 = 10 # второй предложный (местный) падеж loct
 
-class Gender(enum.Enum):
+class Gender(ModelEnum):
     MASK = 1  # мужской
     FEMN = 2  # женский
     NEUT = 3  # средний
     MS_F = 4  # общий род
 
 
-class Number(enum.Enum):
+class Number(ModelEnum):
     SING = 1  # единственное число
     PLUR = 2  # множественное число
 
-class Person(enum.Enum):
+class Person(ModelEnum):
     PER1 = 1  # 1-е лицо
     PER2 = 2  # 2-е лицо
     PER3 = 3  # 3-е лицо
