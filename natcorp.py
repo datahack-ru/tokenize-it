@@ -10,6 +10,9 @@ import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+import numpy
+import sklearn.preprocessing
+
 import logging
 
 log = logging.getLogger(__name__)
@@ -67,7 +70,7 @@ def wordpairs(sentences, dist=1):
 def plot_wordpairs(nc):
     for i in range(1, 5):
         wp = wordpairs(nc, i)
-        pt = pd.crosstab(wp.w1_PoS, wp.w2_PoS, margins=False, normalize='all')
+        pt = pd.crosstab(wp.w1_PoS, wp.w2_PoS, margins=False, normalize='index')
         f = plt.figure()
         ax = f.add_subplot(111)
         sns.set_palette(sns.color_palette("OrRd", 10))
@@ -124,3 +127,20 @@ def plot_2(words):
     plt.figure(num=None, figsize=(8, 6), dpi=100, facecolor='w', edgecolor='k')
     plt.xticks(rotation=45)
     return sns.countplot(x = 'Case', data=words[words.PoS == grmodel.PoS.NOUN], color="black")
+
+def enum_value(obj):
+    if obj is numpy.NaN:
+        return 0
+    else:
+        return obj.value
+
+class LearnExp(object):
+    def __init__(self, ncpath='sample_ar'):
+        self.nc = parse(ncpath)
+        self.enc = sklearn.preprocessing.OneHotEncoder()
+
+    def build_wp(self, distance=1):
+        self.wp = wordpairs(self.nc, distance)
+        self.wp_int = self.wp.drop(['w1_lex', 'w2_lex'], axis=1).applymap(lambda x: enum_value(x))
+        self.enc.fit(self.wp_int)
+        self.learn_set = self.enc.transform(self.wp_int)
