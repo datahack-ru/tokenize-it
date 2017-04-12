@@ -100,6 +100,9 @@ class Person(ModelEnum):
     PER2 = 2  # 2-е лицо
     PER3 = 3  # 3-е лицо
 
+class Abbr(ModelEnum):
+    ABBR = 1
+
 __map = {
 #==== PoS mapping ====# ??MyStem COM
 
@@ -293,5 +296,8 @@ __map = {
     # 3-е лицо
     '3per'   : Person.PER3, # OpenCorpora
     '3p'     : Person.PER3, # НКРЯ
-    '3-л'    : Person.PER3  # MyStem-ru
+    '3-л'    : Person.PER3, # MyStem-ru
+
+#==== Abbriviation ===#
+    'Abbr'   : Abbr.ABBR # OpenCorpora
 }
