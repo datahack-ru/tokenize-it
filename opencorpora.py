@@ -10,7 +10,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-def parse(path='dict.opcorpora.txt', misses=None):
+def parse(path='../dict.opcorpora.txt', misses=None):
     res = []
     re = regex.compile('^(?P<W>.+)\t+(?P<S>[\w-,]+)( (?P<F>[\w-,]+))? ?$')
     with open(path) as f:
