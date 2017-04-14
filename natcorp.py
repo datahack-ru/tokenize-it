@@ -20,23 +20,29 @@ log = logging.getLogger(__name__)
 def parse(p, lex=True, misses=None):
     res = []
     re = regex.compile('^(?P<S>[\w-,]+)=?(\(?((?P<F>[\w,]+)\|?)+\)?)?(=[\w,]+)*$')
+    cre = regex.compile('[^\w]')
     for f in [join(p, f) for f in ls(p)]:
         if isfile(f) and fnmatch(f, '*.xhtml'):
             print(f)
             for s in ET.parse(f).getroot().iter('se'):
                 tokens = []
-                for wordform in s.iter('ana'):
-                    lexem = wordform.attrib['lex']
-                    gr = wordform.attrib['gr']
-                    match = re.match(gr)
-                    if not match:
-                        log.warn('Match failed for "%s"', gr)
-                    else:
-                        # НКРЯ размечен людьми. Разметка всегда однозначна.
-                        grammems = grmodel.get_grammems(match, misses)[0]
-                        if lex:
-                            grammems['lex'] = lexem
-                        tokens.append(grammems)
+                for word in s.iter('w'):
+                    token = cre.sub('', ' '.join(word.itertext())).lower()
+
+                    for ana in word.iter('ana'):
+                        lexem = ana.attrib['lex']
+                        gr = ana.attrib['gr']
+                        match = re.match(gr)
+                        if not match:
+                            log.warn('Match failed for "%s"', gr)
+                        else:
+                            # НКРЯ размечен людьми. Разметка всегда однозначна.
+                            grammems = grmodel.get_grammems(match, misses)[0]
+                            if lex:
+                                grammems['lex'] = lexem
+                            grammems['wf'] = token
+                            tokens.append(grammems)
+
                 res.append(tokens)
         elif isdir(f):
             res = res + parse(f, lex, misses)
