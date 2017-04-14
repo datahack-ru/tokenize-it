@@ -4,7 +4,7 @@ from os.path import isfile, isdir, join
 from fnmatch import fnmatch
 import regex
 import grmodel
-
+import itertools
 
 import logging
 
@@ -35,3 +35,12 @@ class Tok:
             else:
                 res.append(seq)
         return res
+
+    def addgr(self, sentence):
+        res = []
+        for word in sentence:
+            entries = self.dict[word]
+            for entry in entries:
+                entry['wf'] = word
+            res.append(entries)
+        return itertools.product(*res)
