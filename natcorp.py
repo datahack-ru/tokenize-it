@@ -42,8 +42,8 @@ def parse(p, lex=True, misses=None):
                                 grammems['lex'] = lexem
                             grammems['wf'] = token
                             tokens.append(grammems)
-
-                res.append(tokens)
+                if(len(tokens) > 0):
+                    res.append(tokens)
         elif isdir(f):
             res = res + parse(f, lex, misses)
     return res
