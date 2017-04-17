@@ -5,6 +5,8 @@ from fnmatch import fnmatch
 import regex
 import grmodel
 
+import pandas as pd
+
 
 import logging
 
@@ -25,5 +27,14 @@ def parse(path='../dict.opcorpora.txt', misses=None):
                 lemma = match.group('W').lower()
                 if lemma not in res.keys():
                     res[lemma] = []
-                res[lemma].append(grammems)
+                grammems['w'] = lemma
+                f = False
+                for g in res[lemma]:
+                    if grammems == g:
+                        f = True
+                        break
+                if not f: res[lemma].append(grammems)
     return res
+
+def words(oc):
+    return pd.DataFrame([v for vs in oc.values() for v in vs])

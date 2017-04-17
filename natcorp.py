@@ -9,7 +9,6 @@ import pandas as pd
 import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-
 import numpy
 import sklearn.preprocessing
 
@@ -17,7 +16,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-def parse(p, lex=True, misses=None):
+def parse(p='./../sample_ar/', wf=True, misses=None):
     res = []
     re = regex.compile('^(?P<S>[\w-,]+)=?(\(?((?P<F>[\w,]+)\|?)+\)?)?(=[\w,]+)*$')
     cre = regex.compile('[^\w]')
@@ -38,14 +37,13 @@ def parse(p, lex=True, misses=None):
                         else:
                             # НКРЯ размечен людьми. Разметка всегда однозначна.
                             grammems = grmodel.get_grammems(match, misses)[0]
-                            if lex:
-                                grammems['lex'] = lexem
-                            grammems['wf'] = token
+                            if wf:
+                                grammems['w'] = token
                             tokens.append(grammems)
                 if(len(tokens) > 0):
                     res.append(tokens)
         elif isdir(f):
-            res = res + parse(f, lex, misses)
+            res = res + parse(f, wf, misses)
     return res
 
 def words(sentences):
@@ -53,24 +51,6 @@ def words(sentences):
     for sentence in sentences:
         for word in sentence:
             res.append(word)
-    return pd.DataFrame(res, dtype="category")
-
-def join_dicts(dict1, prefix1, dict2, prefix2):
-    res = {}
-    for key in dict1.keys():
-        res[prefix1 + key] = dict1[key]
-    for key in dict2.keys():
-        res[prefix2 + key] = dict2[key]
-    return res
-
-def wordpairs(sentences, dist=1):
-    res = []
-    for sentence in sentences:
-        srange = [i for i in range(len(sentence))]
-        for i in srange:
-            j = i + dist
-            if i + dist in srange:
-                res.append(join_dicts(sentence[i], "w1_", sentence[j], "w2_"))
     return pd.DataFrame(res, dtype="category")
 
 def plot_wordpairs(nc):
