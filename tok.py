@@ -5,6 +5,7 @@ from fnmatch import fnmatch
 import re
 import grmodel
 import itertools
+import random
 
 import logging
 
@@ -28,7 +29,7 @@ class Tok:
         res = []
         queue = self.words(text)
         while queue:
-            seq = queue.pop(0)
+            seq = queue.pop(random.randrange(len(queue)))
             tail = seq.pop()
             if tail:
                 for s in self.words(tail):

@@ -72,21 +72,26 @@ def compute_training_set(nc, oc, limit=None, path="training_set.h5"):
     nc_pairs = nc_pairs.append(wordpairs(nc[:limit], 3), ignore_index=True)
 
     log.info("collecting tokenization pairs")
-    in_pairs = pd.DataFrame()
+    in_pairs_list = []
     t = tok.Tok(oc)
     for i in range(0, limit):
         if i % 100 == 0:
             log.info("tokenized %s of sentences", '{:.1%}'.format(i / limit))
         s = nc[i][:4]
-        tokenizations = t.tok(maketypo(s), gr=True, fuzzylimit=5)
+        tokenizations = t.tok(maketypo(s), gr=True, fuzzylimit=3)
         if len(tokenizations) > 15:
-            tokenizations = tokenizations[15:25]
+            tokenizations = tokenizations[15:20]
         else:
             continue
-        in_pairs = in_pairs.append(wordpairs(tokenizations, 1), ignore_index=True)
-        in_pairs = in_pairs.append(wordpairs(tokenizations, 2), ignore_index=True)
-        in_pairs = in_pairs.append(wordpairs(tokenizations, 3), ignore_index=True)
-    in_pairs = in_pairs
+        # in_pairs = in_pairs.append(wordpairs(tokenizations, 1), ignore_index=False)
+        # in_pairs = in_pairs.append(wordpairs(tokenizations, 2), ignore_index=False)
+        # in_pairs = in_pairs.append(wordpairs(tokenizations, 3), ignore_index=False)
+        in_pairs_list.append(wordpairs(tokenizations, 1))
+        in_pairs_list.append(wordpairs(tokenizations, 2))
+        in_pairs_list.append(wordpairs(tokenizations, 3))
+
+    log.info("concatinating tok pairs dataframes into one")
+    in_pairs = pd.concat(in_pairs_list)
 
     log.info("building training set")
     columns = set(nc_pairs.columns).intersection(set(in_pairs.columns))
