@@ -16,7 +16,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-def parse(p='./../sample_ar/', wf=True, misses=None):
+def parse(p='./../sample_ar/', w=True, misses=None):
     res = []
     re = regex.compile('^(?P<S>[\w-,]+)=?(\(?((?P<F>[\w,]+)\|?)+\)?)?(=[\w,]+)*$')
     cre = regex.compile('[^\w]')
@@ -37,13 +37,14 @@ def parse(p='./../sample_ar/', wf=True, misses=None):
                         else:
                             # НКРЯ размечен людьми. Разметка всегда однозначна.
                             grammems = grmodel.get_grammems(match, misses)[0]
-                            if wf:
+                            if w:
                                 grammems['w'] = token
+                            grammems['l'] = len(token)
                             tokens.append(grammems)
                 if(len(tokens) > 0):
                     res.append(tokens)
         elif isdir(f):
-            res = res + parse(f, wf, misses)
+            res = res + parse(f, w, misses)
     return res
 
 def words(sentences):

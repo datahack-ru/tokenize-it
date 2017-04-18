@@ -12,7 +12,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-def parse(path='../dict.opcorpora.txt', misses=None):
+def parse(path='../dict.opcorpora.txt', w=False, misses=None):
     res = {}
     re = regex.compile('^(?P<W>.+(?=\t))\t+(?P<S>[\w-,]+)( (?P<F>[\w-,]+))? ?$')
     with open(path) as f:
@@ -27,7 +27,9 @@ def parse(path='../dict.opcorpora.txt', misses=None):
                 lemma = match.group('W').lower()
                 if lemma not in res.keys():
                     res[lemma] = []
-                grammems['w'] = lemma
+                if w:
+                    grammems['w'] = lemma
+                grammems['l'] = len(lemma)
                 f = False
                 for g in res[lemma]:
                     if grammems == g:

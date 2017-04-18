@@ -21,6 +21,13 @@ from scipy import interpolate
 
 from profilestats import profile
 
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn import svm
+from sklearn.model_selection import cross_val_score
+
 import logging
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
@@ -34,22 +41,26 @@ def maketypo(sentence):
         del ws[i + 1]
     return ' '.join(ws)
 
-def join_dicts(dict1, suffix1, dict2, suffix2):
+def join_dicts(dicts):
     res = {}
-    for key in dict1.keys():
-        res[key + suffix1] = dict1[key]
-    for key in dict2.keys():
-        res[key + suffix2] = dict2[key]
+    for i in range(0, len(dicts)):
+        d = dicts[i]
+        j = i + 1
+        for key in d.keys():
+            res[key + str(j)] = d[key]
     return res
 
-def wordpairs(sentences, dist=1, limit=None):
+def wordchunks(sentences, dist=1, chunks=False, limit=None):
     res = []
     for sentence in sentences:
         srange = [i for i in range(len(sentence))]
         for i in srange:
             j = i + dist
-            if i + dist in srange:
-                pair = join_dicts(sentence[i], "1", sentence[j], "2")
+            if j in srange:
+                if chunks:
+                    pair = join_dicts(sentence[i:j+1])
+                else:
+                    pair = join_dicts([sentence[i], sentence[j]])
                 pair['d'] = dist
                 res.append(pair)
         if limit:
@@ -61,44 +72,50 @@ def wordpairs(sentences, dist=1, limit=None):
     else:
         return res
 
-def compute_training_set(nc, oc, limit=None, path="training_set.h5"):
+def compute_training_set(nc, oc, chunks=True, limit=None, path="training_set.h5"):
     if not limit:
         limit = len(nc)
 
     log.info("collecting pairs from national corpora")
     nc_pairs = pd.DataFrame()
-    nc_pairs = nc_pairs.append(wordpairs(nc[:limit], 1), ignore_index=True)
-    nc_pairs = nc_pairs.append(wordpairs(nc[:limit], 2), ignore_index=True)
-    nc_pairs = nc_pairs.append(wordpairs(nc[:limit], 3), ignore_index=True)
+    if chunks:
+        nc_pairs = nc_pairs.append(wordchunks(nc[:limit], chunks=True, dist=2), ignore_index=True)
+    else:
+        nc_pairs = nc_pairs.append(wordchunks(nc[:limit], 1), ignore_index=True)
+        nc_pairs = nc_pairs.append(wordchunks(nc[:limit], 2), ignore_index=True)
+        nc_pairs = nc_pairs.append(wordchunks(nc[:limit], 3), ignore_index=True)
 
     log.info("collecting tokenization pairs")
     in_pairs_list = []
     t = tok.Tok(oc)
+    t.enable_boom_protection()
     for i in range(0, limit):
         if i % 100 == 0:
             log.info("tokenized %s of sentences", '{:.1%}'.format(i / limit))
         s = nc[i][:4]
-        tokenizations = t.tok(maketypo(s), gr=True, fuzzylimit=3)
+        tokenizations = t.tok(maketypo(s), gr=True, fuzzylimit=10)
         if len(tokenizations) > 15:
-            tokenizations = tokenizations[15:20]
+            tokenizations = tokenizations[10:42]
         else:
             continue
-        # in_pairs = in_pairs.append(wordpairs(tokenizations, 1), ignore_index=False)
-        # in_pairs = in_pairs.append(wordpairs(tokenizations, 2), ignore_index=False)
-        # in_pairs = in_pairs.append(wordpairs(tokenizations, 3), ignore_index=False)
-        in_pairs_list.append(wordpairs(tokenizations, 1))
-        in_pairs_list.append(wordpairs(tokenizations, 2))
-        in_pairs_list.append(wordpairs(tokenizations, 3))
+        if chunks:
+            in_pairs_list.append(wordchunks(tokenizations, chunks=True, dist=2))
+        else:
+            in_pairs_list.append(wordchunks(tokenizations, 1))
+            in_pairs_list.append(wordchunks(tokenizations, 2))
+            in_pairs_list.append(wordchunks(tokenizations, 3))
 
     log.info("concatinating tok pairs dataframes into one")
     in_pairs = pd.concat(in_pairs_list)
 
     log.info("building training set")
     columns = set(nc_pairs.columns).intersection(set(in_pairs.columns))
-    for c in ['w1', 'w2']: columns.remove(c)
+    for c in [j + str(i) for i in range(1, 6) for j in ['l', 'w']]:
+        if c in columns:
+            columns.remove(c)
 
-    log.info("drop duplicates for national corpora")
-    nc_pairs = nc_pairs.drop_duplicates(subset=columns)
+    # log.info("drop duplicates for national corpora")
+    # nc_pairs = nc_pairs.drop_duplicates(subset=columns)
     log.info("reset index for national corpora")
     nc_pairs.reset_index()
     log.info("settng national corpora word pairs class to True")
@@ -125,6 +142,32 @@ def compute_training_set(nc, oc, limit=None, path="training_set.h5"):
     store['training_set'] = all_pairs
     store.close()
 
+def common_columns(df1, df2, exclude=['w1', 'w2']):
+    columns = set(df1.columns).intersection(set(df2.columns))
+    for c in exclude: columns.remove(c)
+    return list(columns)
+
+@profile()
+def tok_lookup(vdict, oc, text):
+    vdict.replace(np.NaN, 0)
+    t = tok.Tok(oc)
+    sentences = []
+    for s in t.tok(text, gr=True):
+        if not s:
+            continue
+        pairs = pd.DataFrame()
+        pairs = pairs.append(wordpairs([s], 1), ignore_index=True)
+        pairs.replace(np.NaN, 0)
+        cols = common_columns(vdict, pairs)
+        score = 0
+        for row in pairs.iterrows():
+            if (vdict[cols] == row[1][cols]).all(1).any():
+                score = score + 1
+        sentences.append((score, s, pairs))
+    sentences.sort(key=lambda x:x[0])
+    return sentences
+
+
 def unique_pairs(nc, dist=1):
     wp = natcorp.wordpairs(nc, dist).drop(['w1_wf', 'w2_wf'], axis=1)
 
@@ -148,3 +191,43 @@ def unique_pairs(nc, dist=1):
     ax.plot(x, y1, ls='-', color='red', linewidth=0.9)
     ax.plot(x, y2, ls='-', color='black', linewidth=0.9)
     plt.savefig("nc_uniq_pairs" + str(dist) + ".png", bbox_inches='tight')
+
+class LearnExp(object):
+    def __init__(self, ts, columns=('Gender', 'Case', 'PoS', 'Number', 'Shortness', 'VerbForm', 'Comp', 'Tense')):
+        self.feature_columns = [c for c in ts.columns if c.startswith(columns)]
+        self.ts = ts[ts.c].iloc[:len(ts[~ts.c].index)].append(ts[~ts.c], ignore_index=True)
+        self.ts = self.ts.sample(n=200000).reset_index(drop=True)
+        self.targets = self.ts.c
+        self.samples = self.ts[self.feature_columns].replace(np.NaN, 0)
+        self.enc = sklearn.preprocessing.OneHotEncoder()
+        self.enc.fit(self.samples[:6000])
+        self.samples = self.enc.transform(self.samples).toarray()
+
+    def predict(self, df):
+        s = df[self.feature_columns].replace(np.NaN, 0)
+        s = self.enc.transform(s)
+
+        return self.model.predict_proba(s.toarray())
+
+    def learn(self):
+        self.model = svm.SVC()
+        self.model.fit(self.samples, self.targets)
+
+    def learn_dtc(self):
+        self.model = DecisionTreeClassifier()
+        log.debug("Samples: %i", len(self.samples))
+        log.debug("Targets: %i", len(self.targets.index))
+        self.model.fit(self.samples, self.targets)
+
+    def cv(self):#GaussianNB
+        return cross_val_score(DecisionTreeClassifier(), self.samples, self.targets, cv=5)
+
+    def cv_gnb(self):
+        return cross_val_score(GaussianNB(), self.samples, self.targets, cv=5)
+
+    def cv_knn(self):
+        return cross_val_score(KNeighborsClassifier(n_neighbors=2), self.samples, self.targets, cv=5)
+
+    def cv_mlp(self):
+        mlp = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
+        return cross_val_score(mlp, self.samples, self.targets, cv=5)

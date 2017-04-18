@@ -16,6 +16,9 @@ class Tok:
         self.dict = dict
         self.sep = re.compile('[^\w]+')
 
+    def enable_boom_protection(self):
+        self.boom_protection = True
+
     def words(self, text):
         res = []
         for i in range(1, len(text) + 1):
@@ -56,10 +59,17 @@ class Tok:
 
     def addgr(self, sentence):
         res = []
+        size = 1;
         for word in sentence:
             entries = self.dict[word]
+            size = size * len(entries)
             res.append(entries)
-        return [x for x in itertools.product(*res)]
+        if self.boom_protection and size > 10000:
+            #log.debug("size is %i", size)
+            #log.warn("boom for sentence %s", str(sentence))
+            return []
+        else:
+            return [x for x in itertools.product(*res)]
 
     def addgr_to_sentences(self, snts):
         return [j for i in [self.addgr(s) for s in snts] for j in i]
