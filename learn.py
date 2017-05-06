@@ -13,8 +13,9 @@ import tok
 import pandas as pd
 import seaborn as sns
 import matplotlib as mpl
-import matplotlib.pyplot as plt
+
 import numpy as np
+import scipy.stats
 import sklearn.preprocessing
 
 from scipy import interpolate
@@ -31,6 +32,10 @@ from sklearn.model_selection import cross_val_score
 import logging
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
+
+import matplotlib as mpl
+import matplotlib.font_manager as fm
+import matplotlib.pyplot as plt
 
 
 def maketypo(sentence):
@@ -72,14 +77,14 @@ def wordchunks(sentences, dist=1, chunks=False, limit=None):
     else:
         return res
 
-def compute_training_set(nc, oc, chunks=True, limit=None, path="training_set.h5"):
+def compute_training_set(nc, oc, dist=2, chunks=True, limit=None, path="training_set.h5"):
     if not limit:
         limit = len(nc)
 
     log.info("collecting pairs from national corpora")
     nc_pairs = pd.DataFrame()
     if chunks:
-        nc_pairs = nc_pairs.append(wordchunks(nc[:limit], chunks=True, dist=2), ignore_index=True)
+        nc_pairs = nc_pairs.append(wordchunks(nc[:limit], chunks=True, dist=dist), ignore_index=True)
     else:
         nc_pairs = nc_pairs.append(wordchunks(nc[:limit], 1), ignore_index=True)
         nc_pairs = nc_pairs.append(wordchunks(nc[:limit], 2), ignore_index=True)
@@ -99,7 +104,7 @@ def compute_training_set(nc, oc, chunks=True, limit=None, path="training_set.h5"
         else:
             continue
         if chunks:
-            in_pairs_list.append(wordchunks(tokenizations, chunks=True, dist=2))
+            in_pairs_list.append(wordchunks(tokenizations, chunks=True, dist=dist))
         else:
             in_pairs_list.append(wordchunks(tokenizations, 1))
             in_pairs_list.append(wordchunks(tokenizations, 2))
@@ -139,15 +144,17 @@ def compute_training_set(nc, oc, chunks=True, limit=None, path="training_set.h5"
 
     log.info("presisting computed set to disk: %s", path)
     store = pd.HDFStore(path)
-    store['training_set'] = all_pairs
+    store['chunks' + str(dist)] = all_pairs
     store.close()
+
+def opencorpora_todf(oc):
+    return pd.DataFrame([entry for key in oc for entry in oc[key]])
 
 def common_columns(df1, df2, exclude=['w1', 'w2']):
     columns = set(df1.columns).intersection(set(df2.columns))
     for c in exclude: columns.remove(c)
     return list(columns)
 
-@profile()
 def tok_lookup(vdict, oc, text):
     vdict.replace(np.NaN, 0)
     t = tok.Tok(oc)
@@ -167,36 +174,178 @@ def tok_lookup(vdict, oc, text):
     sentences.sort(key=lambda x:x[0])
     return sentences
 
+def tok_learn(l, oc, text):
+    t = tok.Tok(oc)
+    t.enable_boom_protection()
 
-def unique_pairs(nc, dist=1):
-    wp = natcorp.wordpairs(nc, dist).drop(['w1_wf', 'w2_wf'], axis=1)
+    sentences = []
+    for s in t.tok(text, gr=True):
+        if not s or len(s) < 3:
+            continue
+        pairs = pd.DataFrame(wordchunks([s], chunks=True, dist=2))
+        score = np.mean(l.predict(pairs), axis=0)
+        sentences.append((score[1], s))
 
-    nc_shuffled = nc[:]
-    random.shuffle(nc_shuffled)
-    wp_shuffled = natcorp.wordpairs(nc_shuffled, dist).drop(['w1_wf', 'w2_wf'], axis=1)
+    sentences.sort(key=lambda x:x[0])
+    return sentences
 
-    l = len(wp.index)
-    x = [i for i in range(10, l, 50000)] + [l]
 
-    y1 = []
-    y2 = []
+# def unique_pairs(nc, dist=1):
+#     wp = natcorp.wordpairs(nc, dist).drop(['w1_wf', 'w2_wf'], axis=1)
+#
+#     nc_shuffled = nc[:]
+#     random.shuffle(nc_shuffled)
+#     wp_shuffled = natcorp.wordpairs(nc_shuffled, dist).drop(['w1_wf', 'w2_wf'], axis=1)
+#
+#     l = len(wp.index)
+#     x = [i for i in range(10, l, 50000)] + [l]
+#
+#     y1 = []
+#     y2 = []
+#
+#     for i in x:
+#         print(i)
+#         y1.append(len(wp.loc[:i].drop_duplicates().index))
+#         y2.append(len(wp_shuffled.loc[:i].drop_duplicates().index))
+#
+#     f = plt.figure()
+#     ax = f.add_subplot(111)
+#     ax.plot(x, y1, ls='-', color='red', linewidth=0.9)
+#     ax.plot(x, y2, ls='-', color='black', linewidth=0.9)
+#     plt.savefig("nc_uniq_pairs" + str(dist) + ".png", bbox_inches='tight')
 
-    for i in x:
-        print(i)
-        y1.append(len(wp.loc[:i].drop_duplicates().index))
-        y2.append(len(wp_shuffled.loc[:i].drop_duplicates().index))
+def config_ax(ax, xname=None, yname=None, legend=False):
+    sns.reset_orig()
+    fp = fm.FontProperties(fname='Times_New_Roman.ttf', size=14)
+    fp_ticks = fm.FontProperties(fname='Times_New_Roman.ttf', size=11)
+
+    if not legend:
+        if ax.legend_:
+            ax.legend_.remove()
+
+    if xname:
+        ax.set_xlabel(xname)
+        ax.xaxis.label.set_font_properties(fp)
+    if yname:
+        ax.set_ylabel(yname)
+        ax.yaxis.label.set_font_properties(fp)
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    for spine in [ax.spines[k] for k in ['left', 'bottom']]:
+        spine.set_visible(True)
+        spine.set_fill(True)
+        spine.set_color('black')
+        spine.set_linestyle('-')
+        spine.set_linewidth(1.5)
+
+    ax.tick_params(direction='out', length=5, width=0.5, colors='black')
+    ax.grid(color='black', linestyle=':', linewidth=0.5)
+
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+
+    for tick in ax.get_yticklabels():
+        tick.set_font_properties(fp_ticks)
+
+    for tick in ax.get_xticklabels():
+        tick.set_font_properties(fp_ticks)
+        tick.set_rotation(45)
+
+class WordsLenDist:
+    def __init__(self, oc):
+        df = pd.DataFrame([x for l in oc.values() for x in l])
+        df['l'] = df.w.map(lambda x: len(x))
+        total = df.shape[0]
+        ranges = [0,2,4,6,8,10,12,14,16,18,20,22,50]
+        self.c = df.groupby(pd.cut(df.l, ranges)).count()
+        self.c.l = self.c.l / total
+        #self.c = df.l.value_counts(normalize=True, sort=False)
+
+    def plot(self):
+        f = plt.figure(figsize=(6, 4))
+        ax = f.add_subplot(111)
+        self.c.l.plot(kind='bar', color='black', edgecolor="none", label="jui", ax=ax)
+        config_ax(ax, xname='Количество букв в словоформе', yname='Доля словоформ')
+        plt.savefig("images/" + self.__class__.__name__ + ".png", bbox_inches='tight')
+        plt.savefig("images/" + self.__class__.__name__ + ".eps", format='eps', dpi=1000, bbox_inches='tight')
+
+class AmountOfDictionaryEntriesDist:
+    def __init__(self, oc):
+        df = pd.DataFrame([x for l in oc.values() for x in l])
+        df['l'] = df.w.map(lambda x: len(x))
+        df = df.groupby('w').size().to_frame('cnt').reset_index()
+        total = df.shape[0]
+        ranges = [0,1,2,3,4,5,40]
+        self.c = df.groupby(pd.cut(df.cnt, ranges)).count()
+        self.c.cnt = self.c.cnt / total
+        #self.c = df.cnt.value_counts(normalize=True, sort=False)
+
+    def plot(self):
+        f = plt.figure(figsize=(6, 4))
+        ax = f.add_subplot(111)
+        self.c.cnt.plot(kind='bar', color='black', edgecolor="none", label="jui", ax=ax)
+        config_ax(ax, xname='Количество статей, приходящихся на словофору', yname='Доля словоформ')
+        plt.savefig("images/" + self.__class__.__name__ + ".png", bbox_inches='tight')
+        plt.savefig("images/" + self.__class__.__name__ + ".eps", format='eps', dpi=1000, bbox_inches='tight')
+
+class AmountOfDictionaryEntriesWordLenCrossDist:
+    def __init__(self, oc):
+        df = pd.DataFrame([x for l in oc.values() for x in l])
+        df['l'] = df.w.map(lambda x: len(x))
+        df = df.groupby('w').size().to_frame('cnt').reset_index()
+        self.c = df
+        self.c['l'] = self.c.w.map(lambda x: len(x))
+        self.c = self.c[['cnt', 'l']].drop_duplicates()
+
+    def plot(self):
+        sns.set(font='Times New Roman')
+        g = sns.jointplot("l", "cnt", data=self.c.iloc[1:1000000], kind='hex', stat_func=scipy.stats.kendalltau)
+        g.set_axis_labels("Длина словоформы", "Количество словарных статей")
+        g.savefig("images/" + self.__class__.__name__ + ".png", bbox_inches='tight', size=5)
+        g.savefig("images/" + self.__class__.__name__ + ".eps", format='eps', dpi=1000, bbox_inches='tight', size=5, aspect=1)
+
+class SentenceLenDist:
+    def __init__(self, nc):
+        df = pd.DataFrame({"l": [len(x) for x in nc]})
+
+def nc_len_dist(nc):
+    df = pd.DataFrame({"l": [len(x) for x in nc]})
+    ranges = [0,10,20,30,40,50,60,70,80,90,100]
+    f = plt.figure()
+    ax = f.add_subplot(111)
+
+    cnt = df.groupby(pd.cut(df.l, ranges)).count().plot(kind='bar', color='black', edgecolor="none", label="jui", ax=ax)
+    config_ax(ax, xname='Длина предложения', yname='Количество предложений в НКРЯ')
+    plt.savefig("nc_len_dist.png", bbox_inches='tight')
+
+def tok_results_amount(nc, oc):
+    limit = 100
+
+    df = pd.DataFrame()
+
+    t = tok.Tok(oc)
+    #t.enable_boom_protection()
+
+    for i in range(0, limit):
+        s = nc[i]
+        tokenizations = t.tok(maketypo(s), gr=True, fuzzylimit=100)
+        df = df.append({'n': len(tokenizations)}, ignore_index=True)
 
     f = plt.figure()
     ax = f.add_subplot(111)
-    ax.plot(x, y1, ls='-', color='red', linewidth=0.9)
-    ax.plot(x, y2, ls='-', color='black', linewidth=0.9)
-    plt.savefig("nc_uniq_pairs" + str(dist) + ".png", bbox_inches='tight')
+
+    ranges = range(0, 1000, 50)
+    cnt = df.groupby(pd.cut(df.n, ranges)).count().plot(kind='bar', color='black', edgecolor="none", ax=ax)
+    config_ax(ax, xname='Sentence length', yname='Количество предложений в НКРЯ')
+    plt.savefig("tok_results_amount.png", bbox_inches='tight')
+
 
 class LearnExp(object):
-    def __init__(self, ts, columns=('Gender', 'Case', 'PoS', 'Number', 'Shortness', 'VerbForm', 'Comp', 'Tense')):
+    def __init__(self, ts, columns=('Gender', 'Case', 'PoS', 'Number')):
         self.feature_columns = [c for c in ts.columns if c.startswith(columns)]
         self.ts = ts[ts.c].iloc[:len(ts[~ts.c].index)].append(ts[~ts.c], ignore_index=True)
-        self.ts = self.ts.sample(n=200000).reset_index(drop=True)
+        self.ts = self.ts.sample(n=100000).reset_index(drop=True)
         self.targets = self.ts.c
         self.samples = self.ts[self.feature_columns].replace(np.NaN, 0)
         self.enc = sklearn.preprocessing.OneHotEncoder()
@@ -204,13 +353,17 @@ class LearnExp(object):
         self.samples = self.enc.transform(self.samples).toarray()
 
     def predict(self, df):
+        df_columns = set(df.columns)
+        for c in self.feature_columns:
+            if c not in df_columns:
+                df[c] = np.NaN
         s = df[self.feature_columns].replace(np.NaN, 0)
         s = self.enc.transform(s)
 
         return self.model.predict_proba(s.toarray())
 
     def learn(self):
-        self.model = svm.SVC()
+        self.model = DecisionTreeClassifier()
         self.model.fit(self.samples, self.targets)
 
     def learn_dtc(self):
@@ -225,9 +378,12 @@ class LearnExp(object):
     def cv_gnb(self):
         return cross_val_score(GaussianNB(), self.samples, self.targets, cv=5)
 
+    def cv_svc(self):
+        return cross_val_score(svm.SVC(), self.samples, self.targets, cv=5)
+
     def cv_knn(self):
         return cross_val_score(KNeighborsClassifier(n_neighbors=2), self.samples, self.targets, cv=5)
 
     def cv_mlp(self):
-        mlp = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
+        mlp = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(90,), random_state=1)
         return cross_val_score(mlp, self.samples, self.targets, cv=5)

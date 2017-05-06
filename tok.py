@@ -15,6 +15,7 @@ class Tok:
     def __init__(self, dict):
         self.dict = dict
         self.sep = re.compile('[^\w]+')
+        self.boom_protection = False
 
     def enable_boom_protection(self):
         self.boom_protection = True
