@@ -309,3 +309,65 @@ __map = {
 #==== Abbriviation ===#
     'Abbr'   : [Abbr.ABBR] # OpenCorpora
 }
+
+labels = {
+    PoS: {
+        PoS.NOUN: "сущ.",
+        PoS.ADJF: "прил.",
+        PoS.VERB: "гл.",
+        PoS.NUMR: "числ.",
+        PoS.ADVB: "нар.",
+        PoS.NPRO: "мест",
+        PoS.PRED: "пред.",
+        PoS.PREP: "пр.",
+        PoS.CONJ: "союз",
+        PoS.PRCL: "част.",
+        PoS.INTJ: "межд."
+    },
+    Shortness: {
+        Shortness.SHRT: "кр."
+    },
+    Comp: {
+        Comp.COMP: "сравн."
+    },
+    VerbForm: {
+        VerbForm.INFN: "инф.",
+        VerbForm.PRTC: "прич.",
+        VerbForm.GRND: "дееприч."
+    },
+    Tense: {
+        Tense.PRES:"наст.",
+        Tense.PAST: "прош.",
+        Tense.FUTR: "буд."
+    },
+    Case: {
+        Case.NOMN: "им.",
+        Case.GENT: "род.",
+        Case.DATV: "дат.",
+        Case.ACCS: "вин.",
+        Case.ABLT: "твор.",
+        Case.LOCT: "предл.",
+        Case.VOCT: "зват.",
+        Case.GEN2: "вт. род.",
+        Case.ACC2: "вт. вин.",
+        Case.LOC2: "вт. предл."
+    },
+    Gender: {
+        Gender.MASC : "муж.",
+        Gender.FEMN : "жен.",
+        Gender.NEUT : "ср.",
+        Gender.MS_F : "общ."
+    },
+    Number: {
+        Number.SING: "ед.",
+        Number.PLUR: "мн."
+    },
+    Person: {
+        Person.PER1: "1-е",
+        Person.PER2: "2-e",
+        Person.PER3: "3-е"
+    },
+    Abbr: {
+        Abbr.ABBR: "аббр."
+    }
+}

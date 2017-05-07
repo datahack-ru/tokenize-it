@@ -214,10 +214,10 @@ def tok_learn(l, oc, text):
 #     ax.plot(x, y2, ls='-', color='black', linewidth=0.9)
 #     plt.savefig("nc_uniq_pairs" + str(dist) + ".png", bbox_inches='tight')
 
-def config_ax(ax, xname=None, yname=None, legend=False):
+def config_ax(ax, xname=None, yname=None, legend=False, grid=True, xgr=False, ygr=False):
     sns.reset_orig()
     fp = fm.FontProperties(fname='Times_New_Roman.ttf', size=14)
-    fp_ticks = fm.FontProperties(fname='Times_New_Roman.ttf', size=11)
+    fp_ticks = fm.FontProperties(fname='Times_New_Roman.ttf', size=14)
 
     if not legend:
         if ax.legend_:
@@ -240,13 +240,21 @@ def config_ax(ax, xname=None, yname=None, legend=False):
         spine.set_linewidth(1.5)
 
     ax.tick_params(direction='out', length=5, width=0.5, colors='black')
-    ax.grid(color='black', linestyle=':', linewidth=0.5)
+    if grid:
+        ax.grid(color='black', linestyle=':', linewidth=0.5)
 
     ax.xaxis.set_ticks_position('bottom')
     ax.yaxis.set_ticks_position('left')
 
+    grlabel = lambda tick, gr: grmodel.labels[gr][gr(int(float(tick.get_text())))]
+    if ygr:
+        ax.set_yticklabels([grlabel(t, ygr) for t in ax.get_yticklabels()])
+    if xgr:
+        ax.set_xticklabels([grlabel(t, xgr) for t in ax.get_xticklabels()])
+
     for tick in ax.get_yticklabels():
         tick.set_font_properties(fp_ticks)
+        tick.set_rotation(0)
 
     for tick in ax.get_xticklabels():
         tick.set_font_properties(fp_ticks)
@@ -285,7 +293,7 @@ class AmountOfDictionaryEntriesDist:
         f = plt.figure(figsize=(6, 4))
         ax = f.add_subplot(111)
         self.c.cnt.plot(kind='bar', color='black', edgecolor="none", label="jui", ax=ax)
-        config_ax(ax, xname='Количество статей, приходящихся на словофору', yname='Доля словоформ')
+        config_ax(ax, xname='Количество статей, приходящихся на словоформу', yname='Доля словоформ')
         plt.savefig("images/" + self.__class__.__name__ + ".png", bbox_inches='tight')
         plt.savefig("images/" + self.__class__.__name__ + ".eps", format='eps', dpi=1000, bbox_inches='tight')
 
@@ -308,37 +316,70 @@ class AmountOfDictionaryEntriesWordLenCrossDist:
 class SentenceLenDist:
     def __init__(self, nc):
         df = pd.DataFrame({"l": [len(x) for x in nc]})
+        total = df.shape[0]
+        ranges = [0,4,8,12,16,20,24,28,32,36,40,44,100]
+        self.c = df.groupby(pd.cut(df.l, ranges)).count()
+        self.c.l = self.c.l / total
 
-def nc_len_dist(nc):
-    df = pd.DataFrame({"l": [len(x) for x in nc]})
-    ranges = [0,10,20,30,40,50,60,70,80,90,100]
-    f = plt.figure()
-    ax = f.add_subplot(111)
+    def plot(self):
+        f = plt.figure(figsize=(6, 4))
+        ax = f.add_subplot(111)
+        self.c.l.plot(kind='bar', color='black', edgecolor="none", ax=ax)
+        config_ax(ax, xname='Количество слов в предложений', yname='Доля предложений в НКРЯ')
+        plt.savefig("images/" + self.__class__.__name__ + ".png", bbox_inches='tight')
+        plt.savefig("images/" + self.__class__.__name__ + ".eps", format='eps', dpi=1000, bbox_inches='tight')
 
-    cnt = df.groupby(pd.cut(df.l, ranges)).count().plot(kind='bar', color='black', edgecolor="none", label="jui", ax=ax)
-    config_ax(ax, xname='Длина предложения', yname='Количество предложений в НКРЯ')
-    plt.savefig("nc_len_dist.png", bbox_inches='tight')
+class GrCorellation:
+    def __init__(self, nc, dist):
+        self.wp = wordchunks(nc, dist=dist)
+        self.dist = dist
 
-def tok_results_amount(nc, oc):
-    limit = 100
+    def plot(self):
+        ctxs = []
+        ctxs.append((self.wp.PoS1, self.wp.PoS2, grmodel.PoS, (6, 4)))
+        ctxs.append((self.wp.Case1, self.wp.Case2, grmodel.Case, (6, 4)))
+        ctxs.append((self.wp.Number1, self.wp.Number2, grmodel.Number, (4, 3)))
+        ctxs.append((self.wp.Gender1, self.wp.Gender2, grmodel.Gender, (4, 3)))
+        ctxs.append((self.wp.Person1, self.wp.Person2, grmodel.Person, (4, 3)))
+        ctxs.append((self.wp.Tense1, self.wp.Tense2, grmodel.Tense, (4, 3)))
 
-    df = pd.DataFrame()
+        for ctx in ctxs:
+            pt = pd.crosstab(ctx[0], ctx[1], margins=False, normalize='index')
+            f = plt.figure(figsize=ctx[3])
+            ax = f.add_subplot(111)
+            sns.heatmap(pt, linewidths=0.1, ax=ax, cmap="spectral_r", annot=True, fmt=".2f", annot_kws={"size": 11})
+            config_ax(ax, xname='Значение для второго слова', yname='Значение для первого слова', grid=False, xgr=ctx[2], ygr = ctx[2])
+            name = 'images/Corellation_{0}_{1}'.format(ctx[2].__name__, self.dist)
+            plt.savefig(name + ".png", bbox_inches='tight', size=5)
+            plt.savefig(name + ".eps", format='eps', dpi=1000, bbox_inches='tight')
 
-    t = tok.Tok(oc)
-    #t.enable_boom_protection()
+class MyStemPreciesness:
+    def __init__(self, nc):
+        for s in nc:
+            for w in s:
+                
 
-    for i in range(0, limit):
-        s = nc[i]
-        tokenizations = t.tok(maketypo(s), gr=True, fuzzylimit=100)
-        df = df.append({'n': len(tokenizations)}, ignore_index=True)
 
-    f = plt.figure()
-    ax = f.add_subplot(111)
-
-    ranges = range(0, 1000, 50)
-    cnt = df.groupby(pd.cut(df.n, ranges)).count().plot(kind='bar', color='black', edgecolor="none", ax=ax)
-    config_ax(ax, xname='Sentence length', yname='Количество предложений в НКРЯ')
-    plt.savefig("tok_results_amount.png", bbox_inches='tight')
+# def tok_results_amount(nc, oc):
+#     limit = 100
+#
+#     df = pd.DataFrame()
+#
+#     t = tok.Tok(oc)
+#     #t.enable_boom_protection()
+#
+#     for i in range(0, limit):
+#         s = nc[i]
+#         tokenizations = t.tok(maketypo(s), gr=True, fuzzylimit=100)
+#         df = df.append({'n': len(tokenizations)}, ignore_index=True)
+#
+#     f = plt.figure()
+#     ax = f.add_subplot(111)
+#
+#     ranges = range(0, 1000, 50)
+#     cnt = df.groupby(pd.cut(df.n, ranges)).count().plot(kind='bar', color='black', edgecolor="none", ax=ax)
+#     config_ax(ax, xname='Sentence length', yname='Количество предложений в НКРЯ')
+#     plt.savefig("tok_results_amount.png", bbox_inches='tight')
 
 
 class LearnExp(object):
