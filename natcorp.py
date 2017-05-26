@@ -79,14 +79,17 @@ def prep_noun(sentences):
         prep = None
         for word in sentence:
             if 'PoS' in word:
-                if word['PoS'] == grmodel.PoS.PREP:
+                if word['PoS'] == grmodel.PoS.PREP.value:
                     prep = word
-                if word['PoS'] == grmodel.PoS.NOUN:
+                if word['PoS'] == grmodel.PoS.NOUN.value:
                     if prep != None:
-                        word['prep'] = prep['lex'].lower()
+                        word['prep'] = prep['w'].lower()
                         res.append(word)
                         prep = None
-    return pd.DataFrame(res, dtype="category")[['Case', 'prep']]
+    f = lambda x: grmodel.labels[grmodel.Case][grmodel.Case(int(x))]
+    df = pd.DataFrame(res, dtype="category")[['Case', 'prep']]
+    df.Case = df.Case.apply(f)
+    return df
 
 def pn_plot(pn):
     f = plt.figure(num=None, figsize=(8, 6), dpi=100, facecolor='w', edgecolor='k')
